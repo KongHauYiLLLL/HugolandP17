@@ -76,32 +76,6 @@ export const PromoCode: React.FC<PromoCodeProps> = ({ promoCodes, onRedeemCode }
         )}
       </div>
 
-      {/* Available Codes Hint */}
-      <div className="bg-black/30 p-4 rounded-lg mb-4">
-        <h3 className="text-white font-semibold mb-3 text-sm sm:text-base">Available Codes</h3>
-        <div className="space-y-2 text-sm">
-          <div className="flex justify-between items-center p-2 bg-green-900/30 rounded border border-green-500/30">
-            <span className="text-green-300 font-mono">***</span>
-            <span className="text-gray-300 text-xs">Explosive Starter Pack</span>
-          </div>
-          <div className="flex justify-between items-center p-2 bg-blue-900/30 rounded border border-blue-500/30">
-            <span className="text-blue-300 font-mono">********</span>
-            <span className="text-gray-300 text-xs">New Year Bonus. Free 1000 coins!</span>
-          </div>
-          <div className="flex justify-between items-center p-2 bg-purple-900/30 rounded border border-purple-500/30">
-            <span className="text-purple-300 font-mono">*********</span>
-            <span className="text-gray-300 text-xs">Scholar's Gift. Free 250 gems!</span>
-          </div>
-          <div className="flex justify-between items-center p-2 bg-yellow-900/30 rounded border border-yellow-500/30">
-            <span className="text-yellow-300 font-mono">*********</span>
-            <span className="text-gray-300 text-xs">Explorer's Pack</span>
-          </div>
-          <div className="flex justify-between items-center p-2 bg-red-900/30 rounded border border-red-500/30">
-            <span className="text-red-300 font-mono">********</span>
-            <span className="text-gray-300 text-xs">Legendary Rewards</span>
-          </div>
-        </div>
-      </div>
 
       {/* Info */}
       <div className="mt-4 sm:mt-6 text-center">
