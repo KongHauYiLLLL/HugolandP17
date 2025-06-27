@@ -81,23 +81,23 @@ export const PromoCode: React.FC<PromoCodeProps> = ({ promoCodes, onRedeemCode }
         <h3 className="text-white font-semibold mb-3 text-sm sm:text-base">Available Codes</h3>
         <div className="space-y-2 text-sm">
           <div className="flex justify-between items-center p-2 bg-green-900/30 rounded border border-green-500/30">
-            <span className="text-green-300 font-mono">TNT</span>
-            <span className="text-gray-300 text-xs">Explosive Start Pack</span>
+            <span className="text-green-300 font-mono">***</span>
+            <span className="text-gray-300 text-xs">Explosive Starter Pack</span>
           </div>
           <div className="flex justify-between items-center p-2 bg-blue-900/30 rounded border border-blue-500/30">
-            <span className="text-blue-300 font-mono">HUGO2025</span>
+            <span className="text-blue-300 font-mono">********</span>
             <span className="text-gray-300 text-xs">New Year Bonus</span>
           </div>
           <div className="flex justify-between items-center p-2 bg-purple-900/30 rounded border border-purple-500/30">
-            <span className="text-purple-300 font-mono">KNOWLEDGE</span>
+            <span className="text-purple-300 font-mono">*********</span>
             <span className="text-gray-300 text-xs">Scholar's Gift</span>
           </div>
           <div className="flex justify-between items-center p-2 bg-yellow-900/30 rounded border border-yellow-500/30">
-            <span className="text-yellow-300 font-mono">ADVENTURE</span>
+            <span className="text-yellow-300 font-mono">*********</span>
             <span className="text-gray-300 text-xs">Explorer's Pack</span>
           </div>
           <div className="flex justify-between items-center p-2 bg-red-900/30 rounded border border-red-500/30">
-            <span className="text-red-300 font-mono">MYTHICAL</span>
+            <span className="text-red-300 font-mono">********</span>
             <span className="text-gray-300 text-xs">Legendary Rewards</span>
           </div>
         </div>
