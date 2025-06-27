@@ -86,11 +86,11 @@ export const PromoCode: React.FC<PromoCodeProps> = ({ promoCodes, onRedeemCode }
           </div>
           <div className="flex justify-between items-center p-2 bg-blue-900/30 rounded border border-blue-500/30">
             <span className="text-blue-300 font-mono">********</span>
-            <span className="text-gray-300 text-xs">New Year Bonus</span>
+            <span className="text-gray-300 text-xs">New Year Bonus. Free 1000 coins!</span>
           </div>
           <div className="flex justify-between items-center p-2 bg-purple-900/30 rounded border border-purple-500/30">
             <span className="text-purple-300 font-mono">*********</span>
-            <span className="text-gray-300 text-xs">Scholar's Gift</span>
+            <span className="text-gray-300 text-xs">Scholar's Gift. Free 250 gems!</span>
           </div>
           <div className="flex justify-between items-center p-2 bg-yellow-900/30 rounded border border-yellow-500/30">
             <span className="text-yellow-300 font-mono">*********</span>
