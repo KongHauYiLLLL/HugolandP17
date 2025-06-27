@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
-import { GameState, PlayerStats, Inventory, Enemy, Weapon, Armor, ChestReward, Research, Achievement, CollectionBook, KnowledgeStreak, GameMode, Statistics, CheatSettings, Mining, PowerSkill } from '../types/game';
-import { generateWeapon, generateArmor, generateEnemy, generateMythicalWeapon, generateMythicalArmor, calculateResearchBonus, calculateResearchCost, getChestRarityWeights } from '../utils/gameUtils';
+import { GameState, PlayerStats, Inventory, Enemy, Weapon, Armor, ChestReward, Research, Achievement, CollectionBook, KnowledgeStreak, GameMode, Statistics, CheatSettings, Mining, PowerSkill, Multipliers, ExpeditionState } from '../types/game';
+import { generateWeapon, generateArmor, generateEnemy, generateMythicalWeapon, generateMythicalArmor, calculateResearchBonus, calculateResearchCost, getChestRarityWeights, mergeItems, calculateAfkGems } from '../utils/gameUtils';
 import { checkAchievements, initializeAchievements } from '../utils/achievements';
 import { getPowerSkillForTier } from '../utils/powerSkills';
 import AsyncStorage from '../utils/storage';
@@ -22,6 +22,7 @@ const initialInventory: Inventory = {
   armor: [],
   currentWeapon: null,
   currentArmor: null,
+  maxItems: 5,
 };
 
 const initialResearch: Research = {
@@ -77,27 +78,67 @@ const initialCheats: CheatSettings = {
 };
 
 const initialMining: Mining = {
-  efficiency: 1,
-  tools: {
-    basic_pickaxe: false,
-    steel_pickaxe: false,
-    diamond_pickaxe: false,
-    mythical_pickaxe: false,
-  },
+  efficiency: 2,
   totalGemsMined: 0,
+  isAfkMining: true,
+  lastAfkTime: Date.now(),
 };
 
-const initialPromoCodes: PromoCodeState = {
+const initialMultipliers: Multipliers = {
+  coins: 1.0,
+  gems: 1.0,
+  atk: 1.0,
+  def: 1.0,
+  hp: 1.0,
+};
+
+const initialExpedition: ExpeditionState = {
+  isActive: false,
+  currentZone: 1,
+  maxZone: 20,
+  lives: 1,
+  modifiers: [],
+  questionsAnswered: 0,
+  totalQuestions: 15,
+  rewards: [],
+};
+
+const initialPromoCodes = {
   usedCodes: [],
   availableCodes: [
     {
       code: 'TNT',
       name: 'Explosive Start',
       description: 'Get a head start with bonus resources!',
-      rewards: {
-        coins: 500,
-        gems: 50,
-      },
+      rewards: { coins: 500, gems: 50 },
+      isUsed: false,
+    },
+    {
+      code: 'HUGO2025',
+      name: 'New Year Bonus',
+      description: 'Celebrate the new year with extra rewards!',
+      rewards: { coins: 1000, gems: 100 },
+      isUsed: false,
+    },
+    {
+      code: 'KNOWLEDGE',
+      name: 'Scholar\'s Gift',
+      description: 'For the true seekers of wisdom!',
+      rewards: { coins: 750, gems: 75 },
+      isUsed: false,
+    },
+    {
+      code: 'ADVENTURE',
+      name: 'Explorer\'s Pack',
+      description: 'Everything an adventurer needs!',
+      rewards: { coins: 1500, gems: 150 },
+      isUsed: false,
+    },
+    {
+      code: 'MYTHICAL',
+      name: 'Legendary Rewards',
+      description: 'The ultimate treasure trove!',
+      rewards: { coins: 2500, gems: 250 },
       isUsed: false,
     },
   ],
@@ -123,18 +164,13 @@ const initialGameState: GameState = {
   cheats: initialCheats,
   mining: initialMining,
   promoCodes: initialPromoCodes,
+  multipliers: initialMultipliers,
+  expedition: initialExpedition,
 };
 
 export const useGameState = () => {
   const [gameState, setGameState] = useState<GameState>(initialGameState);
   const [isLoading, setIsLoading] = useState(true);
-  const [visualEffects, setVisualEffects] = useState({
-    showFloatingText: false,
-    floatingText: '',
-    floatingTextColor: '',
-    showParticles: false,
-    showScreenShake: false,
-  });
 
   // Update play time
   useEffect(() => {
@@ -151,18 +187,22 @@ export const useGameState = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // AFK gem mining - 2 gems per minute
+  // AFK gem mining - based on efficiency per minute
   useEffect(() => {
     const interval = setInterval(() => {
       setGameState(prev => ({
         ...prev,
-        gems: prev.gems + 2,
+        gems: prev.gems + prev.mining.efficiency,
+        mining: {
+          ...prev.mining,
+          totalGemsMined: prev.mining.totalGemsMined + prev.mining.efficiency,
+        },
         statistics: {
           ...prev.statistics,
-          gemsEarned: prev.statistics.gemsEarned + 2,
+          gemsEarned: prev.statistics.gemsEarned + prev.mining.efficiency,
         },
       }));
-    }, 60000);
+    }, 60000); // Every minute
 
     return () => clearInterval(interval);
   }, []);
@@ -196,8 +236,15 @@ export const useGameState = () => {
             isPremium: parsedState.isPremium || parsedState.zone >= 50,
             powerSkills: parsedState.powerSkills || [],
             cheats: parsedState.cheats || initialCheats,
-            mining: parsedState.mining || initialMining,
+            mining: { ...initialMining, ...parsedState.mining },
             promoCodes: parsedState.promoCodes || initialPromoCodes,
+            multipliers: parsedState.multipliers || initialMultipliers,
+            expedition: parsedState.expedition || initialExpedition,
+            inventory: {
+              ...initialInventory,
+              ...parsedState.inventory,
+              maxItems: parsedState.inventory?.maxItems || 5,
+            },
           });
         } else {
           setGameState({
@@ -248,32 +295,6 @@ export const useGameState = () => {
     }
   }, [gameState, isLoading]);
 
-  const triggerVisualEffect = useCallback((type: 'text' | 'particles' | 'shake', data?: any) => {
-    switch (type) {
-      case 'text':
-        setVisualEffects(prev => ({
-          ...prev,
-          showFloatingText: true,
-          floatingText: data.text,
-          floatingTextColor: data.color,
-        }));
-        break;
-      case 'particles':
-        setVisualEffects(prev => ({ ...prev, showParticles: true }));
-        break;
-      case 'shake':
-        setVisualEffects(prev => ({ ...prev, showScreenShake: true }));
-        break;
-    }
-  }, []);
-
-  const clearVisualEffect = useCallback((type: 'text' | 'particles' | 'shake') => {
-    setVisualEffects(prev => ({
-      ...prev,
-      [`show${type.charAt(0).toUpperCase() + type.slice(1)}`]: false,
-    }));
-  }, []);
-
   const updateCollectionBook = useCallback((item: Weapon | Armor) => {
     setGameState(prev => {
       const isWeapon = 'baseAtk' in item;
@@ -312,13 +333,6 @@ export const useGameState = () => {
       const newBest = Math.max(prev.knowledgeStreak.best, newCurrent);
       const newMultiplier = Math.min(1 + Math.floor(newCurrent / 5) * 0.1, 2);
 
-      if (correct && newCurrent > 0 && newCurrent % 5 === 0) {
-        triggerVisualEffect('text', { 
-          text: `${newCurrent} Streak! +${Math.round((newMultiplier - 1) * 100)}% Bonus!`, 
-          color: 'text-yellow-400' 
-        });
-      }
-
       return {
         ...prev,
         knowledgeStreak: {
@@ -329,7 +343,7 @@ export const useGameState = () => {
         },
       };
     });
-  }, [triggerVisualEffect]);
+  }, []);
 
   const updateStatistics = useCallback((category: string, correct: boolean) => {
     setGameState(prev => ({
@@ -364,13 +378,6 @@ export const useGameState = () => {
           }
         });
 
-        if (bonusCoins > 0 || bonusGems > 0) {
-          triggerVisualEffect('text', { 
-            text: `Achievement Rewards: +${bonusCoins} coins, +${bonusGems} gems!`, 
-            color: 'text-green-400' 
-          });
-        }
-
         const updatedAchievements = prev.achievements.map(existing => {
           const newUnlock = newUnlocks.find(nu => nu.id === existing.id);
           return newUnlock || existing;
@@ -386,7 +393,7 @@ export const useGameState = () => {
 
       return prev;
     });
-  }, [triggerVisualEffect]);
+  }, []);
 
   const updatePlayerStats = useCallback(() => {
     setGameState(prev => {
@@ -399,6 +406,11 @@ export const useGameState = () => {
 
       const researchBonus = calculateResearchBonus(prev.research.level, prev.research.tier);
       let bonusMultiplier = 1 + (researchBonus / 100);
+
+      // Apply multipliers
+      bonusMultiplier *= prev.multipliers.atk; // For attack
+      const defMultiplier = prev.multipliers.def;
+      const hpMultiplier = prev.multipliers.hp;
 
       // Apply power skill bonuses
       let powerSkillAtkBonus = 0;
@@ -421,25 +433,25 @@ export const useGameState = () => {
 
       // Apply game mode modifiers
       let atkMultiplier = 1;
-      let defMultiplier = 1;
-      let hpMultiplier = 1;
+      let defModeMultiplier = 1;
+      let hpModeMultiplier = 1;
 
       switch (prev.gameMode.current) {
         case 'bloodlust':
           atkMultiplier = 2;
-          defMultiplier = 0.5;
-          hpMultiplier = 0.5;
+          defModeMultiplier = 0.5;
+          hpModeMultiplier = 0.5;
           break;
         case 'crazy':
           atkMultiplier = 0.5;
-          defMultiplier = 0.5;
-          hpMultiplier = 0.5;
+          defModeMultiplier = 0.5;
+          hpModeMultiplier = 0.5;
           break;
       }
 
       const finalAtk = Math.floor(((prev.playerStats.baseAtk + weaponAtk) * bonusMultiplier + powerSkillAtkBonus) * atkMultiplier);
-      const finalDef = Math.floor(((prev.playerStats.baseDef + armorDef) * bonusMultiplier + powerSkillDefBonus) * defMultiplier);
-      const finalMaxHp = Math.floor(prev.playerStats.baseHp * bonusMultiplier * hpMultiplier * powerSkillHpMultiplier);
+      const finalDef = Math.floor(((prev.playerStats.baseDef + armorDef) * bonusMultiplier * defMultiplier + powerSkillDefBonus) * defModeMultiplier);
+      const finalMaxHp = Math.floor(prev.playerStats.baseHp * bonusMultiplier * hpMultiplier * powerSkillHpMultiplier * hpModeMultiplier);
 
       return {
         ...prev,
@@ -480,64 +492,24 @@ export const useGameState = () => {
     console.log('Generate cheat item functionality not implemented yet');
   }, []);
 
-  const mineGem = useCallback((x: number, y: number): boolean => {
-    setGameState(prev => ({
-      ...prev,
-      gems: prev.gems + prev.mining.efficiency,
-      mining: {
-        ...prev.mining,
-        totalGemsMined: prev.mining.totalGemsMined + prev.mining.efficiency,
-      },
-      statistics: {
-        ...prev.statistics,
-        gemsEarned: prev.statistics.gemsEarned + prev.mining.efficiency,
-      },
-    }));
-
-    triggerVisualEffect('text', { text: `+${gameState.mining.efficiency} Gem${gameState.mining.efficiency > 1 ? 's' : ''}!`, color: 'text-purple-400' });
-    return true;
-  }, [triggerVisualEffect, gameState.mining.efficiency]);
-
-  const purchaseMiningTool = useCallback((toolId: string): boolean => {
-    const toolCosts = {
-      basic_pickaxe: 50,
-      steel_pickaxe: 200,
-      diamond_pickaxe: 500,
-      mythical_pickaxe: 1000,
-    };
-
-    const toolEfficiency = {
-      basic_pickaxe: 1,
-      steel_pickaxe: 2,
-      diamond_pickaxe: 3,
-      mythical_pickaxe: 5,
-    };
-
-    const cost = toolCosts[toolId as keyof typeof toolCosts];
-    const efficiency = toolEfficiency[toolId as keyof typeof toolEfficiency];
-
+  const claimAfkGems = useCallback(() => {
     setGameState(prev => {
-      if (prev.gems < cost || prev.mining.tools[toolId as keyof typeof prev.mining.tools]) {
-        return prev;
-      }
-
+      const afkGems = calculateAfkGems(prev.mining.lastAfkTime, prev.mining.efficiency);
       return {
         ...prev,
-        gems: prev.gems - cost,
+        gems: prev.gems + afkGems,
         mining: {
           ...prev.mining,
-          efficiency: prev.mining.efficiency + efficiency,
-          tools: {
-            ...prev.mining.tools,
-            [toolId]: true,
-          },
+          lastAfkTime: Date.now(),
+          totalGemsMined: prev.mining.totalGemsMined + afkGems,
+        },
+        statistics: {
+          ...prev.statistics,
+          gemsEarned: prev.statistics.gemsEarned + afkGems,
         },
       };
     });
-
-    triggerVisualEffect('text', { text: 'Mining Tool Purchased!', color: 'text-orange-400' });
-    return true;
-  }, [triggerVisualEffect]);
+  }, []);
 
   const redeemPromoCode = useCallback((code: string): boolean => {
     setGameState(prev => {
@@ -579,11 +551,6 @@ export const useGameState = () => {
         });
       }
 
-      triggerVisualEffect('text', { 
-        text: `Promo Code Redeemed! +${promoCode.rewards.coins || 0} coins, +${promoCode.rewards.gems || 0} gems`, 
-        color: 'text-green-400' 
-      });
-
       return {
         ...prev,
         coins: newCoins,
@@ -598,7 +565,7 @@ export const useGameState = () => {
     });
 
     return true;
-  }, [triggerVisualEffect]);
+  }, []);
 
   const discardItem = useCallback((itemId: string, type: 'weapon' | 'armor') => {
     setGameState(prev => ({
@@ -611,6 +578,84 @@ export const useGameState = () => {
         armor: type === 'armor'
           ? prev.inventory.armor.filter(a => a.id !== itemId)
           : prev.inventory.armor,
+      },
+    }));
+  }, []);
+
+  const mergeItemsCallback = useCallback((item1: Weapon | Armor, item2: Weapon | Armor, newName: string, cost: { coins: number; gems: number }): boolean => {
+    setGameState(prev => {
+      if (prev.coins < cost.coins || prev.gems < cost.gems) {
+        return prev;
+      }
+
+      const mergedItem = mergeItems(item1, item2, newName);
+      const isWeapon = 'baseAtk' in mergedItem;
+
+      return {
+        ...prev,
+        coins: prev.coins - cost.coins,
+        gems: prev.gems - cost.gems,
+        inventory: {
+          ...prev.inventory,
+          weapons: isWeapon 
+            ? [...prev.inventory.weapons.filter(w => w.id !== item1.id && w.id !== item2.id), mergedItem as Weapon]
+            : prev.inventory.weapons.filter(w => w.id !== item1.id && w.id !== item2.id),
+          armor: !isWeapon
+            ? [...prev.inventory.armor.filter(a => a.id !== item1.id && a.id !== item2.id), mergedItem as Armor]
+            : prev.inventory.armor.filter(a => a.id !== item1.id && a.id !== item2.id),
+        },
+      };
+    });
+
+    return true;
+  }, []);
+
+  const purchaseMultiplier = useCallback((type: keyof Multipliers, cost: { coins: number; gems: number }): boolean => {
+    setGameState(prev => {
+      if (prev.coins < cost.coins || prev.gems < cost.gems) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        coins: prev.coins - cost.coins,
+        gems: prev.gems - cost.gems,
+        multipliers: {
+          ...prev.multipliers,
+          [type]: prev.multipliers[type] + 0.1,
+        },
+      };
+    });
+
+    updatePlayerStats();
+    return true;
+  }, [updatePlayerStats]);
+
+  const startExpedition = useCallback(() => {
+    setGameState(prev => ({
+      ...prev,
+      expedition: {
+        ...prev.expedition,
+        isActive: true,
+        currentZone: 1,
+        lives: 1,
+        questionsAnswered: 0,
+        totalQuestions: Math.floor(Math.random() * 11) + 10, // 10-20 questions
+      },
+    }));
+  }, []);
+
+  const endExpedition = useCallback(() => {
+    setGameState(prev => ({
+      ...prev,
+      expedition: {
+        ...prev.expedition,
+        isActive: false,
+        currentZone: 1,
+        lives: 1,
+        questionsAnswered: 0,
+        modifiers: [],
+        rewards: [],
       },
     }));
   }, []);
@@ -652,8 +697,6 @@ export const useGameState = () => {
         ? updatedWeapons.find(w => w.id === weaponId) || null
         : prev.inventory.currentWeapon;
 
-      triggerVisualEffect('text', { text: 'Weapon Upgraded!', color: 'text-green-400' });
-
       return {
         ...prev,
         gems: prev.cheats.infiniteGems ? prev.gems : prev.gems - weapon.upgradeCost,
@@ -665,7 +708,7 @@ export const useGameState = () => {
       };
     });
     updatePlayerStats();
-  }, [updatePlayerStats, triggerVisualEffect]);
+  }, [updatePlayerStats]);
 
   const upgradeArmor = useCallback((armorId: string) => {
     setGameState(prev => {
@@ -682,8 +725,6 @@ export const useGameState = () => {
         ? updatedArmor.find(a => a.id === armorId) || null
         : prev.inventory.currentArmor;
 
-      triggerVisualEffect('text', { text: 'Armor Upgraded!', color: 'text-blue-400' });
-
       return {
         ...prev,
         gems: prev.cheats.infiniteGems ? prev.gems : prev.gems - armor.upgradeCost,
@@ -695,7 +736,7 @@ export const useGameState = () => {
       };
     });
     updatePlayerStats();
-  }, [updatePlayerStats, triggerVisualEffect]);
+  }, [updatePlayerStats]);
 
   const sellWeapon = useCallback((weaponId: string) => {
     setGameState(prev => {
@@ -740,13 +781,9 @@ export const useGameState = () => {
       let newPowerSkills = [...prev.powerSkills];
       
       if (newTier > prev.research.tier) {
-        triggerVisualEffect('text', { text: `Research Tier ${newTier + 1} Unlocked!`, color: 'text-purple-400' });
-        
-        // Unlock new power skill for this tier
         const newPowerSkill = getPowerSkillForTier(newTier + 1);
         if (newPowerSkill) {
           newPowerSkills.push(newPowerSkill);
-          triggerVisualEffect('text', { text: `New Power Skill: ${newPowerSkill.name}!`, color: 'text-yellow-400' });
         }
       }
 
@@ -763,23 +800,24 @@ export const useGameState = () => {
     });
     updatePlayerStats();
     checkAndUnlockAchievements();
-  }, [gameState.research.level, gameState.research.tier, updatePlayerStats, triggerVisualEffect, checkAndUnlockAchievements]);
+  }, [gameState.research.level, gameState.research.tier, updatePlayerStats, checkAndUnlockAchievements]);
 
   const openChest = useCallback((chestCost: number): ChestReward | null => {
     if (gameState.coins < chestCost && !gameState.cheats.infiniteCoins) return null;
+
+    const totalItems = gameState.inventory.weapons.length + gameState.inventory.armor.length;
+    if (totalItems >= gameState.inventory.maxItems) return null;
 
     const numItems = Math.floor(Math.random() * 3) + 2;
     const bonusGems = Math.floor(Math.random() * 15) + 10;
     const items: (Weapon | Armor)[] = [];
 
-    // Get rarity weights based on chest cost
     const rarityWeights = getChestRarityWeights(chestCost);
     const rarities = ['common', 'rare', 'epic', 'legendary', 'mythical'];
 
     for (let i = 0; i < numItems; i++) {
       const isWeapon = Math.random() < 0.5;
       
-      // Select rarity based on weights
       const random = Math.random() * 100;
       let cumulative = 0;
       let selectedRarity = 'common';
@@ -803,7 +841,8 @@ export const useGameState = () => {
     };
 
     const streakMultiplier = gameState.knowledgeStreak.multiplier;
-    const finalBonusGems = Math.floor(bonusGems * streakMultiplier);
+    const gemMultiplier = gameState.multipliers.gems;
+    const finalBonusGems = Math.floor(bonusGems * streakMultiplier * gemMultiplier);
 
     setGameState(prev => ({
       ...prev,
@@ -824,37 +863,7 @@ export const useGameState = () => {
     checkAndUnlockAchievements();
 
     return chestReward;
-  }, [gameState.coins, gameState.knowledgeStreak.multiplier, gameState.cheats.infiniteCoins, updateCollectionBook, checkAndUnlockAchievements]);
-
-  const purchaseMythical = useCallback((): { item: Weapon | Armor; type: 'weapon' | 'armor' } | null => {
-    const MYTHICAL_COST = 50000;
-    if (gameState.coins < MYTHICAL_COST && !gameState.cheats.infiniteCoins) return null;
-
-    const isWeapon = Math.random() < 0.5;
-    const item = isWeapon ? generateMythicalWeapon() : generateMythicalArmor();
-    const type = isWeapon ? 'weapon' : 'armor';
-
-    updateCollectionBook(item);
-
-    setGameState(prev => ({
-      ...prev,
-      coins: prev.cheats.infiniteCoins ? prev.coins : prev.coins - MYTHICAL_COST,
-      inventory: {
-        ...prev.inventory,
-        weapons: isWeapon ? [...prev.inventory.weapons, item as Weapon] : prev.inventory.weapons,
-        armor: !isWeapon ? [...prev.inventory.armor, item as Armor] : prev.inventory.armor,
-      },
-      statistics: {
-        ...prev.statistics,
-        itemsCollected: prev.statistics.itemsCollected + 1,
-      },
-    }));
-
-    triggerVisualEffect('text', { text: 'Mythical Item Acquired!', color: 'text-red-400' });
-    checkAndUnlockAchievements();
-
-    return { item, type };
-  }, [gameState.coins, gameState.cheats.infiniteCoins, updateCollectionBook, triggerVisualEffect, checkAndUnlockAchievements]);
+  }, [gameState.coins, gameState.knowledgeStreak.multiplier, gameState.multipliers.gems, gameState.cheats.infiniteCoins, gameState.inventory, updateCollectionBook, checkAndUnlockAchievements]);
 
   const startCombat = useCallback(() => {
     let enemy = generateEnemy(gameState.zone);
@@ -893,8 +902,6 @@ export const useGameState = () => {
       let newCombatLog = [...prev.combatLog];
       let newPlayerHp = prev.playerStats.hp;
       let newEnemyHp = prev.currentEnemy.hp;
-      let combatEnded = false;
-      let playerWon = false;
 
       if (hit) {
         let baseDamage = Math.max(1, prev.playerStats.atk - prev.currentEnemy.def);
@@ -924,26 +931,20 @@ export const useGameState = () => {
         newEnemyHp = Math.max(0, prev.currentEnemy.hp - finalDamage);
         newCombatLog.push(`You deal ${finalDamage} damage to the ${prev.currentEnemy.name}!`);
         
-        triggerVisualEffect('text', { text: `-${finalDamage}`, color: 'text-red-400' });
-        
-        // FIXED: Check if enemy is defeated immediately after taking damage
         if (newEnemyHp <= 0) {
-          combatEnded = true;
-          playerWon = true;
           newCombatLog.push(`You defeated the ${prev.currentEnemy.name}!`);
           
-          // Handle victory rewards immediately
-          let coinMultiplier = 1;
-          let gemMultiplier = 1;
+          let coinMultiplier = prev.multipliers.coins;
+          let gemMultiplier = prev.multipliers.gems;
           
           switch (prev.gameMode.current) {
             case 'blitz':
-              coinMultiplier = 1.25;
-              gemMultiplier = 1.1;
+              coinMultiplier *= 1.25;
+              gemMultiplier *= 1.1;
               break;
             case 'crazy':
-              coinMultiplier = 6;
-              gemMultiplier = 6;
+              coinMultiplier *= 6;
+              gemMultiplier *= 6;
               break;
           }
 
@@ -992,11 +993,7 @@ export const useGameState = () => {
         newPlayerHp = Math.max(0, prev.playerStats.hp - damage);
         newCombatLog.push(`You missed! The ${prev.currentEnemy.name} deals ${damage} damage to you!`);
         
-        triggerVisualEffect('shake');
-        
         if (newPlayerHp <= 0) {
-          combatEnded = true;
-          playerWon = false;
           newCombatLog.push(`You were defeated by the ${prev.currentEnemy.name}...`);
           
           return {
@@ -1018,7 +1015,7 @@ export const useGameState = () => {
     });
 
     setTimeout(checkAndUnlockAchievements, 100);
-  }, [updateStatistics, updateKnowledgeStreak, triggerVisualEffect, checkAndUnlockAchievements]);
+  }, [updateStatistics, updateKnowledgeStreak, checkAndUnlockAchievements]);
 
   const resetGame = useCallback(async () => {
     try {
@@ -1040,8 +1037,6 @@ export const useGameState = () => {
   return {
     gameState,
     isLoading,
-    visualEffects,
-    clearVisualEffect,
     equipWeapon,
     equipArmor,
     upgradeWeapon,
@@ -1050,7 +1045,7 @@ export const useGameState = () => {
     sellArmor,
     upgradeResearch,
     openChest,
-    purchaseMythical,
+    purchaseMultiplier,
     startCombat,
     attack,
     resetGame,
@@ -1058,9 +1053,11 @@ export const useGameState = () => {
     toggleCheat,
     generateCheatItem,
     checkAndUnlockAchievements,
-    mineGem,
-    purchaseMiningTool,
+    claimAfkGems,
     redeemPromoCode,
     discardItem,
+    mergeItems: mergeItemsCallback,
+    startExpedition,
+    endExpedition,
   };
 };

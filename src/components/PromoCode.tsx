@@ -20,16 +20,16 @@ export const PromoCode: React.FC<PromoCodeProps> = ({ promoCodes, onRedeemCode }
     const success = onRedeemCode(inputCode.toUpperCase());
     
     if (success) {
-      setMessage({ text: "Promo code redeemed successfully! The server won't tell me if you're capping so just bear with me.", type: 'success' });
+      setMessage({ text: "Promo code redeemed successfully!", type: 'success' });
       setInputCode('');
     } else {
-      setMessage({ text: 'Wrong code', type: 'error' }); // Changed this message
+      setMessage({ text: 'Invalid or already used code', type: 'error' });
     }
     setTimeout(() => setMessage(null), 3000);
   };
 
   return (
-    <div className="bg-gradient-to-br from-green-900 via-emerald-900 to-teal-900 p-4 sm:p-6 rounded-lg shadow-2xl">
+    <div className="bg-gradient-to-br from-green-900/80 via-emerald-900/80 to-teal-900/80 p-4 sm:p-6 rounded-lg shadow-2xl">
       <div className="text-center mb-4 sm:mb-6">
         <div className="flex items-center justify-center gap-2 mb-2">
           <Gift className="w-6 h-6 sm:w-8 sm:h-8 text-green-400" />
@@ -48,12 +48,12 @@ export const PromoCode: React.FC<PromoCodeProps> = ({ promoCodes, onRedeemCode }
             value={inputCode}
             onChange={(e) => setInputCode(e.target.value.toUpperCase())}
             placeholder="Enter code here..."
-            className="flex-1 px-3 py-2 bg-gray-800 text-white rounded-lg border border-gray-600 focus:border-green-500 focus:outline-none text-sm sm:text-base"
+            className="flex-1 px-3 py-2 bg-gray-800/80 text-white rounded-lg border border-gray-600 focus:border-green-500 focus:outline-none text-sm sm:text-base"
             maxLength={20}
           />
           <button
             onClick={handleRedeem}
-            className="px-4 sm:px-6 py-2 bg-gradient-to-r from-green-600 to-green-500 text-white font-semibold rounded-lg hover:from-green-500 hover:to-green-400 transition-all duration-200 text-sm sm:text-base"
+            className="px-4 sm:px-6 py-2 bg-gradient-to-r from-green-600/80 to-green-500/80 text-white font-semibold rounded-lg hover:from-green-500/80 hover:to-green-400/80 transition-all duration-200 text-sm sm:text-base"
           >
             Redeem
           </button>
@@ -74,6 +74,33 @@ export const PromoCode: React.FC<PromoCodeProps> = ({ promoCodes, onRedeemCode }
             <span className="text-sm">{message.text}</span>
           </div>
         )}
+      </div>
+
+      {/* Available Codes Hint */}
+      <div className="bg-black/30 p-4 rounded-lg mb-4">
+        <h3 className="text-white font-semibold mb-3 text-sm sm:text-base">Available Codes</h3>
+        <div className="space-y-2 text-sm">
+          <div className="flex justify-between items-center p-2 bg-green-900/30 rounded border border-green-500/30">
+            <span className="text-green-300 font-mono">TNT</span>
+            <span className="text-gray-300 text-xs">Explosive Start Pack</span>
+          </div>
+          <div className="flex justify-between items-center p-2 bg-blue-900/30 rounded border border-blue-500/30">
+            <span className="text-blue-300 font-mono">HUGO2025</span>
+            <span className="text-gray-300 text-xs">New Year Bonus</span>
+          </div>
+          <div className="flex justify-between items-center p-2 bg-purple-900/30 rounded border border-purple-500/30">
+            <span className="text-purple-300 font-mono">KNOWLEDGE</span>
+            <span className="text-gray-300 text-xs">Scholar's Gift</span>
+          </div>
+          <div className="flex justify-between items-center p-2 bg-yellow-900/30 rounded border border-yellow-500/30">
+            <span className="text-yellow-300 font-mono">ADVENTURE</span>
+            <span className="text-gray-300 text-xs">Explorer's Pack</span>
+          </div>
+          <div className="flex justify-between items-center p-2 bg-red-900/30 rounded border border-red-500/30">
+            <span className="text-red-300 font-mono">MYTHICAL</span>
+            <span className="text-gray-300 text-xs">Legendary Rewards</span>
+          </div>
+        </div>
       </div>
 
       {/* Info */}

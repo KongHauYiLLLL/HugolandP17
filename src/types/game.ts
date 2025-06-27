@@ -18,6 +18,8 @@ export interface GameState {
   cheats: CheatSettings;
   mining: Mining;
   promoCodes: PromoCodeState;
+  multipliers: Multipliers;
+  expedition: ExpeditionState;
 }
 
 export interface PlayerStats {
@@ -41,6 +43,7 @@ export interface Inventory {
   armor: Armor[];
   currentWeapon: Weapon | null;
   currentArmor: Armor | null;
+  maxItems: number;
 }
 
 export interface Weapon {
@@ -54,6 +57,7 @@ export interface Weapon {
   isChroma?: boolean;
   durability: number;
   maxDurability: number;
+  enchantments: Enchantment[];
 }
 
 export interface Armor {
@@ -67,6 +71,15 @@ export interface Armor {
   isChroma?: boolean;
   durability: number;
   maxDurability: number;
+  enchantments: Enchantment[];
+}
+
+export interface Enchantment {
+  id: string;
+  name: string;
+  type: 'flame' | 'sharpness' | 'durability' | 'thorns' | 'frost' | 'lightning' | 'poison' | 'healing';
+  level: number;
+  description: string;
 }
 
 export interface Enemy {
@@ -176,13 +189,9 @@ export interface CheatSettings {
 
 export interface Mining {
   efficiency: number; // How many gems per mine action
-  tools: {
-    basic_pickaxe: boolean;
-    steel_pickaxe: boolean;
-    diamond_pickaxe: boolean;
-    mythical_pickaxe: boolean;
-  };
   totalGemsMined: number;
+  isAfkMining: boolean;
+  lastAfkTime: number;
 }
 
 export interface MiningTool {
@@ -209,6 +218,47 @@ export interface PromoCode {
     items?: (Weapon | Armor)[];
   };
   isUsed: boolean;
+}
+
+export interface Multipliers {
+  coins: number;
+  gems: number;
+  atk: number;
+  def: number;
+  hp: number;
+}
+
+export interface ExpeditionState {
+  isActive: boolean;
+  currentZone: number;
+  maxZone: number;
+  lives: number;
+  modifiers: ExpeditionModifier[];
+  questionsAnswered: number;
+  totalQuestions: number;
+  rewards: ExpeditionReward[];
+}
+
+export interface ExpeditionModifier {
+  id: string;
+  name: string;
+  description: string;
+  type: 'upside_down' | 'light_of_dark' | 'twice_upon_time' | 'bare_hands' | 'glitched_screen' | 'underwater' | 'bad_luck';
+  isActive: boolean;
+  intensity?: number;
+}
+
+export interface ExpeditionReward {
+  type: 'coins' | 'gems' | 'multiplier';
+  amount: number;
+  multiplierType?: keyof Multipliers;
+}
+
+export interface AnvilMerge {
+  item1: Weapon | Armor;
+  item2: Weapon | Armor;
+  newName: string;
+  cost: { coins: number; gems: number };
 }
 
 export type PowerSkills = PowerSkill[];

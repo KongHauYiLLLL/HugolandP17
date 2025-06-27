@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Enemy, PowerSkills } from '../types/game';
+import { Enemy, PowerSkills, ExpeditionState } from '../types/game';
 import { Sword, Shield, Heart, Brain, Clock, Zap, Skull, Flame, Droplets, Plus } from 'lucide-react';
 import { TriviaQuestion, getQuestionByZone } from '../utils/triviaQuestions';
 
@@ -25,6 +25,7 @@ interface CombatProps {
     multiplier: number;
   };
   powerSkills: PowerSkills;
+  expedition?: ExpeditionState;
 }
 
 export const Combat: React.FC<CombatProps> = ({ 
@@ -34,7 +35,8 @@ export const Combat: React.FC<CombatProps> = ({
   combatLog, 
   gameMode,
   knowledgeStreak,
-  powerSkills 
+  powerSkills,
+  expedition 
 }) => {
   const [currentQuestion, setCurrentQuestion] = useState<TriviaQuestion | null>(null);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
@@ -43,7 +45,15 @@ export const Combat: React.FC<CombatProps> = ({
   const [showResult, setShowResult] = useState(false);
   const [lastAnswerCorrect, setLastAnswerCorrect] = useState<boolean | null>(null);
 
-  const questionTime = (gameMode.current === 'blitz' || gameMode.current === 'bloodlust') ? 3 : 5;
+  let questionTime = (gameMode.current === 'blitz' || gameMode.current === 'bloodlust') ? 3 : 5;
+  
+  // Apply expedition modifiers
+  if (expedition?.isActive) {
+    const twiceUponTime = expedition.modifiers.find(m => m.type === 'twice_upon_time' && m.isActive);
+    if (twiceUponTime) {
+      questionTime = 2;
+    }
+  }
 
   useEffect(() => {
     const question = getQuestionByZone(enemy.zone);
@@ -131,7 +141,7 @@ export const Combat: React.FC<CombatProps> = ({
 
   if (!currentQuestion) {
     return (
-      <div className="bg-gradient-to-br from-red-900 via-purple-900 to-black p-3 sm:p-6 rounded-lg shadow-2xl">
+      <div className="bg-gradient-to-br from-red-900/80 via-purple-900/80 to-black/80 p-3 sm:p-6 rounded-lg shadow-2xl">
         <div className="text-center py-8">
           <div className="animate-spin inline-block w-8 h-8 border-4 border-purple-400 border-t-transparent rounded-full mb-4"></div>
           <p className="text-white text-lg">Loading question...</p>
@@ -140,12 +150,21 @@ export const Combat: React.FC<CombatProps> = ({
     );
   }
 
+  // Apply expedition styling
+  const expeditionStyle = expedition?.isActive ? {
+    background: 'linear-gradient(135deg, #7c2d12, #ea580c, #f59e0b)',
+    filter: 'sepia(0.8) saturate(1.2) hue-rotate(15deg)'
+  } : {};
+
   return (
-    <div className="bg-gradient-to-br from-red-900 via-purple-900 to-black p-3 sm:p-6 rounded-lg shadow-2xl">
+    <div className="bg-gradient-to-br from-red-900/80 via-purple-900/80 to-black/80 p-3 sm:p-6 rounded-lg shadow-2xl" style={expeditionStyle}>
       <div className="text-center mb-4 sm:mb-6">
         <div className="flex items-center justify-center gap-2 mb-2">
           <h2 className="text-xl sm:text-2xl font-bold text-white">Combat - Zone {enemy.zone}</h2>
           {getModeIcon()}
+          {expedition?.isActive && (
+            <span className="text-orange-400 font-bold text-sm">🔥 EXPEDITION</span>
+          )}
         </div>
         <p className="text-red-300 text-base sm:text-lg font-semibold">{enemy.name}</p>
         
@@ -160,9 +179,14 @@ export const Combat: React.FC<CombatProps> = ({
               🔥 {knowledgeStreak.current} Streak ({Math.round((knowledgeStreak.multiplier - 1) * 100)}% bonus)
             </span>
           )}
+
+          {expedition?.isActive && (
+            <span className="text-orange-300 text-xs">
+              {expedition.questionsAnswered}/{expedition.totalQuestions} Questions
+            </span>
+          )}
         </div>
       </div>
-
 
       {/* Health Bars */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
@@ -223,6 +247,20 @@ export const Combat: React.FC<CombatProps> = ({
         </div>
       </div>
 
+      {/* Active Expedition Modifiers */}
+      {expedition?.isActive && expedition.modifiers.some(m => m.isActive) && (
+        <div className="bg-orange-900/50 p-3 rounded-lg mb-4 border border-orange-500/50">
+          <h4 className="text-orange-400 font-semibold mb-2 text-sm">Active Expedition Modifiers:</h4>
+          <div className="flex flex-wrap gap-2">
+            {expedition.modifiers.filter(m => m.isActive).map((modifier) => (
+              <span key={modifier.id} className="text-xs bg-red-900/30 px-2 py-1 rounded border border-red-500/30 text-red-300">
+                {modifier.name}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Trivia Question Section */}
       <div className="mb-4 sm:mb-6">
         <div className="flex items-center justify-between mb-4">
@@ -255,18 +293,18 @@ export const Combat: React.FC<CombatProps> = ({
           {/* Answer Options */}
           <div className="grid grid-cols-1 gap-2 sm:gap-3">
             {currentQuestion.options.map((option, index) => {
-              let buttonClass = 'bg-gray-700 hover:bg-gray-600 text-white';
+              let buttonClass = 'bg-gray-700/80 hover:bg-gray-600/80 text-white';
               
               if (showResult) {
                 if (index === currentQuestion.correctAnswer) {
-                  buttonClass = 'bg-green-600 text-white';
+                  buttonClass = 'bg-green-600/80 text-white';
                 } else if (index === selectedAnswer && selectedAnswer !== currentQuestion.correctAnswer) {
-                  buttonClass = 'bg-red-600 text-white';
+                  buttonClass = 'bg-red-600/80 text-white';
                 } else {
-                  buttonClass = 'bg-gray-600 text-gray-400';
+                  buttonClass = 'bg-gray-600/80 text-gray-400';
                 }
               } else if (selectedAnswer === index) {
-                buttonClass = 'bg-blue-600 text-white';
+                buttonClass = 'bg-blue-600/80 text-white';
               }
 
               return (
@@ -313,7 +351,7 @@ export const Combat: React.FC<CombatProps> = ({
             Answer correctly to <span className="text-green-400 font-semibold">deal damage</span>!
           </p>
           <p className={`text-xs font-semibold ${
-            gameMode.current === 'blitz' || gameMode.current === 'bloodlust' ? 'text-yellow-400' : 'text-red-400'
+            gameMode.current === 'blitz' || gameMode.current === 'bloodlust' || expedition?.isActive ? 'text-yellow-400' : 'text-red-400'
           }`}>
             ⚠️ Only {questionTime} seconds to answer!
           </p>
