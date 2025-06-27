@@ -497,37 +497,6 @@ function App() {
         </div>
       </div>
 
-      {/* Footer */}
-      <div className="text-center py-3 sm:py-4 lg:py-6 text-gray-400 text-xs sm:text-sm lg:text-base px-4 relative z-10">
-        Welcome to{' '}
-        <button
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            handleFooterClick('tutorial');
-          }}
-          className="text-gray-400 hover:text-purple-400 transition-colors cursor-pointer underline decoration-dotted font-semibold"
-        >
-          Hugoland
-        </button>
-        {' '}- Where knowledge meets{' '}
-        <button
-          onClick={() => setCurrentModal('pokyegMarket')}
-          className="text-gray-400 hover:text-red-400 transition-colors cursor-pointer underline decoration-dotted"
-        >
-          power
-        </button>
-        ! 
-        {gameState.isPremium && <span className="text-yellow-400 ml-2">👑 Premium Member</span>}
-        {gameState.knowledgeStreak.current > 0 && (
-          <span className="text-yellow-400 ml-2">🔥 {gameState.knowledgeStreak.current} Streak</span>
-        )}
-        <span className="text-purple-400 ml-2">Mode: {gameState.gameMode.current.toUpperCase()}</span>
-        {gameState.expedition.isActive && (
-          <span className="text-orange-400 ml-2">🗺️ EXPEDITION ACTIVE</span>
-        )}
-      </div>
-
       {/* Modals */}
       {renderModal()}
     </div>
